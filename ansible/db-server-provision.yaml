@@ -1,0 +1,42 @@
+- hosts: db_servers
+  remote_user: ubuntu
+  become: true
+  gather_facts: yes
+  tasks:
+    - name: Update apt-get repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: Set hostname
+      hostname:
+        name: '{{ inventory_hostname }}'
+    - name: install dependencies
+      apt:
+        pkg:
+          - ca-certificates
+          - curl
+          - gnupg2
+          - lsb-release
+          - htop
+
+    - name: Add Percona repo
+      apt: 
+        deb: "https://repo.percona.com/apt/percona-release_latest.{{ ansible_distribution_release }}_all.deb"
+    - name: Set Percona dist 
+      shell: percona-release setup ps80
+    - name: Install Percona 8.0
+      apt: name=percona-server-server state=present update_cache=yes
+
+    - name: Copy conf vars_files
+      template:
+        src: templates/mysqld.cnf.j2
+        dest: /etc/mysql/mysql.conf.d/mysqld.cnf
+        owner: root
+        group: root
+        mode: 0644
+      
+    - name: Restart db_servers
+      systemd:
+        name: mysql
+        state: restarted
+
+
